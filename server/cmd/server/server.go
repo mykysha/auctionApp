@@ -6,7 +6,7 @@ import (
 	"github.com/nndergunov/auctuionApp/server/api"
 )
 
-type ServerRepository interface {
+type Repository interface {
 	Start() error
 }
 

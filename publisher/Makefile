@@ -3,3 +3,6 @@ gomod-download:
 
 gomod-tidy:
 	go mod tidy -go=1.19 -compat=1.19
+
+start-queue:
+	docker-compose up -d

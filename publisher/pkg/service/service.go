@@ -1,7 +1,7 @@
 package service
 
 import (
-	"encoding/json"
+	"fmt"
 
 	"github.com/nndergunov/auctuionApp/publisher/pkg/messagebroker"
 	"github.com/nndergunov/auctuionApp/publisher/pkg/mock"
@@ -27,20 +27,19 @@ func (s *Service) PostAuctionData() error {
 		return err
 	}
 
-	for {
-		data, err := s.auctionMock.GetAuctionData()
-		if err != nil {
-			return err
-		}
+	dataChan, err := s.auctionMock.GetAuctionDataContinuous()
+	if err != nil {
+		return err
+	}
 
-		jsonData, err := json.Marshal(data)
-		if err != nil {
-			return err
-		}
+	for data := range dataChan {
+		fmt.Println("posting data to message broker")
 
-		err = broker.Publish("auction", jsonData)
+		err = broker.Publish("auction", data)
 		if err != nil {
 			return err
 		}
 	}
+
+	return nil
 }

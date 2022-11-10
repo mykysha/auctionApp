@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/nndergunov/auctuionApp/server/pkg/service"
@@ -16,15 +17,15 @@ type API struct {
 
 // NewAPI creates a new websocket API
 func NewAPI(appService service.ServiceRepository) *API {
-	api := new(API)
+	api := &API{
+		service: appService,
+		mux:     http.NewServeMux(),
+	}
 
-	mux := http.NewServeMux()
+	api.mux.HandleFunc("/longpoll", api.LongPoll)
+	api.mux.HandleFunc("/ws", api.Upgrade)
 
-	mux.HandleFunc("/longpoll", api.LongPoll)
-	mux.HandleFunc("/ws", api.Upgrade)
-
-	api.service = appService
-	api.mux = mux
+	api.service.Run()
 
 	return api
 }
@@ -36,20 +37,37 @@ func (api API) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // LongPoll handles long polling requests.
 func (api API) LongPoll(w http.ResponseWriter, _ *http.Request) {
-	data, err := api.service.GetAuctionData()
-	if err != nil {
-		return
+	reqTime := time.Now()
+
+	timeout := time.Duration(10) * time.Second
+
+	for {
+		if time.Now().After(reqTime.Add(timeout)) {
+			break
+		}
+
+		lastUpdateTime := api.service.GetLastUpdateTime()
+
+		if lastUpdateTime.After(reqTime) {
+			data := api.service.GetAuctionData()
+
+			jsonData, err := json.Marshal(data)
+			if err != nil {
+				return
+			}
+
+			_, err = w.Write(jsonData)
+			if err != nil {
+				return
+			}
+
+			return
+		}
+
+		// time.Sleep(100 * time.Microsecond)
 	}
 
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return
-	}
-
-	_, err = w.Write(jsonData)
-	if err != nil {
-		return
-	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Upgrade upgrades the connection to a websocket connection.
@@ -74,12 +92,16 @@ func (api API) Upgrade(w http.ResponseWriter, r *http.Request) {
 		_ = ws.Close()
 	}(conn)
 
-	for {
+	lastUpdateTime := api.service.GetLastUpdateTime()
 
-		data, err := api.service.GetAuctionData()
-		if err != nil {
-			return
+	for {
+		if !lastUpdateTime.Before(api.service.GetLastUpdateTime()) {
+			continue
 		}
+
+		lastUpdateTime = api.service.GetLastUpdateTime()
+
+		data := api.service.GetAuctionData()
 
 		jsonData, err := json.Marshal(data)
 		if err != nil {

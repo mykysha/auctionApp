@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/nndergunov/auctuionApp/publisher/pkg/mock"
 	"github.com/nndergunov/auctuionApp/publisher/pkg/service"
 )
@@ -10,5 +12,10 @@ func main() {
 
 	publisherService := service.NewService(mockAuction)
 
-	publisherService.PostAuctionData()
+	err := publisherService.PostAuctionData()
+	if err != nil {
+		log.Println(err)
+
+		return
+	}
 }

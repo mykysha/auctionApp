@@ -4,25 +4,25 @@ package mock
 import (
 	"math/rand"
 	"strconv"
+	"time"
 
 	"github.com/nndergunov/auctuionApp/publisher/domain"
 )
 
 // AuctionRepository is a mock implementation of the auction client.
 type AuctionRepository interface {
-	GetAuctionData() ([]domain.AuctionData, error)
-	GetAuctionDataContinuous() (chan domain.AuctionData, error)
+	GetAuctionDataContinuous() (chan []domain.AuctionData, error)
 }
 
 // AuctionMock is a mock implementation of the auction client.
 type AuctionMock struct {
-	auctionData map[int]*domain.AuctionData
+	auctionData map[int]domain.AuctionData
 	lastID      int
 }
 
 // NewAuctionMock creates a new mock auction client.
 func NewAuctionMock() *AuctionMock {
-	auctionData := make(map[int]*domain.AuctionData)
+	auctionData := make(map[int]domain.AuctionData)
 
 	return &AuctionMock{
 		auctionData: auctionData,
@@ -30,76 +30,53 @@ func NewAuctionMock() *AuctionMock {
 	}
 }
 
-// GetAuctionData returns mock data.
-func (a *AuctionMock) GetAuctionData() ([]domain.AuctionData, error) {
-	auctions := make([]domain.AuctionData, 0, len(a.auctionData))
-
-	for _, auction := range a.auctionData {
-		if !auction.Ongoing {
-			continue
-		}
-
-		if randInt(0, 100) < 10 {
-			auction.Ongoing = false
-
-			continue
-		}
-
-		auction.HighestBid += float64(randInt(100, 1000))
-	}
-
-	if randInt(0, 10) > 7 {
-		a.lastID++
-
-		startingPrice := randFloat(1000, 10000)
-
-		a.auctionData[a.lastID] = &domain.AuctionData{
-			Ongoing:       true,
-			ID:            a.lastID,
-			StartingPrice: startingPrice,
-			HighestBid:    startingPrice + randFloat(100, 1000),
-			Product:       "Product " + strconv.Itoa(a.lastID),
-			Owner:         "Owner " + strconv.Itoa(a.lastID),
-		}
-	}
-
-	return auctions, nil
-}
-
-func (a *AuctionMock) GetAuctionDataContinuous() (chan domain.AuctionData, error) {
-	dataChan := make(chan domain.AuctionData)
+func (a *AuctionMock) GetAuctionDataContinuous() (chan []domain.AuctionData, error) {
+	dataChan := make(chan []domain.AuctionData)
 
 	go func() {
-		for _, auction := range a.auctionData {
-			if !auction.Ongoing {
-				continue
+		for {
+			time.Sleep(time.Millisecond)
+
+			for id, auction := range a.auctionData {
+				if !auction.Ongoing {
+					delete(a.auctionData, id)
+
+					continue
+				}
+
+				if randInt(0, 100) < 10 {
+					auction.Ongoing = false
+
+					delete(a.auctionData, id)
+
+					continue
+				}
+
+				auction.HighestBid += float64(randInt(100, 1000))
 			}
 
-			if randInt(0, 100) < 10 {
-				auction.Ongoing = false
+			if randInt(0, 10) > 7 {
+				a.lastID++
 
-				continue
+				startingPrice := randFloat(1000, 10000)
+
+				a.auctionData[a.lastID] = domain.AuctionData{
+					Ongoing:       true,
+					ID:            a.lastID,
+					StartingPrice: startingPrice,
+					HighestBid:    startingPrice + randFloat(100, 1000),
+					Product:       "Product " + strconv.Itoa(a.lastID),
+					Owner:         "Owner " + strconv.Itoa(a.lastID),
+				}
 			}
 
-			auction.HighestBid += float64(randInt(100, 1000))
+			data := make([]domain.AuctionData, 0, len(a.auctionData))
 
-			dataChan <- *auction
-		}
-
-		if randInt(0, 10) > 7 {
-			a.lastID++
-
-			startingPrice := randFloat(1000, 10000)
-
-			a.auctionData[a.lastID] = &domain.AuctionData{
-				ID:            a.lastID,
-				StartingPrice: startingPrice,
-				HighestBid:    startingPrice + randFloat(100, 1000),
-				Product:       "Product " + strconv.Itoa(a.lastID),
-				Owner:         "Owner " + strconv.Itoa(a.lastID),
+			for _, auction := range a.auctionData {
+				data = append(data, auction)
 			}
 
-			dataChan <- *a.auctionData[a.lastID]
+			dataChan <- data
 		}
 	}()
 
@@ -116,7 +93,7 @@ func randInt(min, max int) int {
 	return min + rand.Intn(max-min)
 }
 
-func chanceMachie(chance int) bool {
+func chanceMachine(chance int) bool {
 	percentNumber := 100
 
 	return randInt(1, percentNumber) > chance

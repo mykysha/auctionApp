@@ -1,6 +1,7 @@
 package messagebroker
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -53,7 +54,8 @@ func (p EventPublisher) Publish(topic string, data any) error {
 		return fmt.Errorf("encoding data: %w", err)
 	}
 
-	err = p.ch.Publish(
+	err = p.ch.PublishWithContext(
+		context.Background(),
 		topic,
 		"",
 		false,

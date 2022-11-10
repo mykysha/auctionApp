@@ -13,5 +13,8 @@ func main() {
 
 	defaultServer := server.NewServer(defaultAPI)
 
-	defaultServer.Start(":7000")
+	err := defaultServer.Start(":7000")
+	if err != nil {
+		panic(err)
+	}
 }
